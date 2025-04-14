@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AES Encryption Tool</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AES-128 CBC Encryption Tool</h1>
+            <p>Encrypt and decrypt messages securely using AES-128 in CBC mode</p>
+        </header>
+
+        <div class="sections-container">
+            <div class="section" id="encrypt-section">
+                <h2>Encrypt Message</h2>
+                <div class="form-group">
+                    <label for="encrypt-plaintext">Plaintext Message:</label>
+                    <textarea id="encrypt-plaintext" placeholder="Enter the message you want to encrypt..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="encrypt-key">Encryption Key (16 characters):</label>
+                    <input type="text" id="encrypt-key" placeholder="Enter your 16-character key" maxlength="16">
+                    <span class="char-count">0/16</span>
+                </div>
+                <button id="encrypt-btn" class="action-btn">Encrypt</button>
+                
+                <div class="result-container" id="encrypt-result">
+                    <div class="form-group">
+                        <label for="encrypted-text">Encrypted Message (Base64):</label>
+                        <textarea id="encrypted-text" readonly></textarea>
+                        <button class="copy-btn" data-target="encrypted-text">Copy</button>
+                    </div>
+                    <div class="form-group">
+                        <label for="iv-text">Initialization Vector (IV):</label>
+                        <input type="text" id="iv-text" readonly>
+                        <button class="copy-btn" data-target="iv-text">Copy</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section" id="decrypt-section">
+                <h2>Decrypt Message</h2>
+                <div class="form-group">
+                    <label for="decrypt-ciphertext">Encrypted Message (Base64):</label>
+                    <textarea id="decrypt-ciphertext" placeholder="Enter the encrypted message (Base64 format)..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="decrypt-iv">Initialization Vector (IV):</label>
+                    <input type="text" id="decrypt-iv" placeholder="Enter the IV used for encryption">
+                </div>
+                <div class="form-group">
+                    <label for="decrypt-key">Decryption Key (16 characters):</label>
+                    <input type="text" id="decrypt-key" placeholder="Enter your 16-character key" maxlength="16">
+                    <span class="char-count">0/16</span>
+                </div>
+                <button id="decrypt-btn" class="action-btn">Decrypt</button>
+                
+                <div class="result-container" id="decrypt-result">
+                    <div class="form-group">
+                        <label for="decrypted-text">Decrypted Message:</label>
+                        <textarea id="decrypted-text" readonly></textarea>
+                        <button class="copy-btn" data-target="decrypted-text">Copy</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h3>How AES-128 CBC Works:</h3>
+            <ul>
+                <li><strong>AES (Advanced Encryption Standard)</strong>: A symmetric encryption algorithm used worldwide</li>
+                <li><strong>CBC (Cipher Block Chaining)</strong>: A mode of operation that provides better security through block chaining</li>
+                <li><strong>Key</strong>: Your secret 16-character key used for both encryption and decryption</li>
+                <li><strong>IV (Initialization Vector)</strong>: A random value generated for each encryption that adds randomness</li>
+            </ul>
+            <p class="note">Note: Always keep your encryption key secure and remember that you need both the IV and the key to decrypt messages.</p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Character count for key inputs
+            const keyInputs = document.querySelectorAll('#encrypt-key, #decrypt-key');
+            keyInputs.forEach(input => {
+                input.addEventListener('input', function() {
+                    const count = this.value.length;
+                    const countDisplay = this.nextElementSibling;
+                    countDisplay.textContent = `${count}/16`;
+                    
+                    // Visual feedback
+                    if (count === 16) {
+                        countDisplay.classList.add('valid');
+                        countDisplay.classList.remove('invalid');
+                    } else {
+                        countDisplay.classList.add('invalid');
+                        countDisplay.classList.remove('valid');
+                    }
+                });
+            });
+
+            // Copy button functionality
+            const copyBtns = document.querySelectorAll('.copy-btn');
+            copyBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const targetId = this.getAttribute('data-target');
+                    const targetElement = document.getElementById(targetId);
+                    
+                    targetElement.select();
+                    document.execCommand('copy');
+                    
+                    // Visual feedback
+                    const originalText = this.textContent;
+                    this.textContent = 'Copied!';
+                    this.classList.add('copied');
+                    
+                    setTimeout(() => {
+                        this.textContent = originalText;
+                        this.classList.remove('copied');
+                    }, 1500);
+                });
+            });
+
+            // Encrypt functionality
+            document.getElementById('encrypt-btn').addEventListener('click', function() {
+                const plaintext = document.getElementById('encrypt-plaintext').value;
+                const key = document.getElementById('encrypt-key').value;
+                
+                if (!plaintext) {
+                    alert('Please enter a message to encrypt');
+                    return;
+                }
+                
+                if (key.length !== 16) {
+                    alert('Encryption key must be exactly 16 characters');
+                    return;
+                }
+                
+                // Send encryption request to server
+                fetch('/encrypt', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ plaintext, key }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert('Error: ' + data.error);
+                        return;
+                    }
+                    
+                    document.getElementById('encrypted-text').value = data.ciphertext;
+                    document.getElementById('iv-text').value = data.iv;
+                    document.getElementById('encrypt-result').style.display = 'block';
+                })
+                .catch(error => {
+                    alert('Error: ' + error.message);
+                });
+            });
+
+            // Decrypt functionality
+            document.getElementById('decrypt-btn').addEventListener('click', function() {
+                const ciphertext = document.getElementById('decrypt-ciphertext').value;
+                const iv = document.getElementById('decrypt-iv').value;
+                const key = document.getElementById('decrypt-key').value;
+                
+                if (!ciphertext || !iv) {
+                    alert('Please enter both the encrypted message and the IV');
+                    return;
+                }
+                
+                if (key.length !== 16) {
+                    alert('Decryption key must be exactly 16 characters');
+                    return;
+                }
+                
+                // Send decryption request to server
+                fetch('/decrypt', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ ciphertext, iv, key }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert('Error: ' + data.error);
+                        return;
+                    }
+                    
+                    document.getElementById('decrypted-text').value = data.plaintext;
+                    document.getElementById('decrypt-result').style.display = 'block';
+                })
+                .catch(error => {
+                    alert('Error: ' + error.message);
+                });
+            });
+
+            // Initially hide result containers
+            document.getElementById('encrypt-result').style.display = 'none';
+            document.getElementById('decrypt-result').style.display = 'none';
+        });
+    </script>
+</body>
+</html>
